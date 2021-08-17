@@ -1,1 +1,1 @@
-# Sudoku_WithKO
+# Sudoku_KO

@@ -1,0 +1,875 @@
+﻿@model SudokuMaster.Models.SudokuViewModel
+@{ var data = new System.Web.Script.Serialization.JavaScriptSerializer().Serialize(Model); }
+@section Styles{
+    <link href="@Url.Content("~/Content/Sudoku.css")" rel="stylesheet" />
+}
+@section Scripts{
+    <script src="@Url.Content("~/Scripts/confetti.js")"></script>
+    <script>
+        var move = function (data) {
+            var self = this;
+            ko.mapping.fromJS(data, {}, self);
+        };
+        var vmMapping = {
+            'Puzzle': {
+                key: function (vm) {
+                    return ko.utils.unwrapObservable(vm.ID);
+                },
+                create: function (options) {
+                    return new move(options.data);
+                }
+            }
+        };
+        var vm = function (data) {
+            var self = this;
+            ko.mapping.fromJS(data, vmMapping, self);
+
+            self.GuessOrdinal(0);
+            document.getElementById('hdnGuessOrdinal').value = 0;
+            self.LastCellClickPositionX = ko.observable(0);
+            self.LastCellClickPositionY = ko.observable(0);
+            self.ClearDisabled = ko.observable(false);
+            self.PreviousCellValue = ko.observable("");
+
+
+            if (self.PuzzleSolved()) {
+                document.getElementById('puzzleSolved').style.display = "block";
+                confetti({
+                    spread: 180
+                });
+            }
+            else if (self.InvalidSolution()) {
+                document.getElementById('invalidSolution').style.display = "block";
+            }
+
+            self.handleCellChange = function (row, col, e) {
+
+                var alphCol = self.ConvertNumColToAlpha(col);
+                var currentCellsValue = self.CurrentMove[alphCol + (row + 1)].Value();
+                self.PreviousCellValue(currentCellsValue);
+
+                if (currentCellsValue == "") {
+                    self.ClearDisabled(true);
+                }
+                else {
+                    self.ClearDisabled(false);
+                }
+
+                self.GuessColumn(col);
+                self.GuessRow(row);
+
+                var modal = document.getElementById("myModal");
+                var dialog = document.getElementById("theKeyPad");
+
+                var pos = findClickPosition(e);
+                e.target.classList.add("SudokuOptionsHighlighted");
+                modal.style.display = "block";
+                dialog.style.display = "block";
+
+                self.LastCellClickPositionX(pos.x);
+                self.LastCellClickPositionY(pos.y);
+
+                if (self.KP_POS_X() == 0 && self.KP_POS_Y() == 0) {
+                    self.SetKP_Position(pos.x - 400, pos.y - 75);
+                }
+                else {
+                    self.SetKP_Position(self.KP_POS_X(), self.KP_POS_Y());
+                }
+            };
+
+
+            self.ConvertNumColToAlpha = function (number) {
+                switch (number) {
+                    case 0:
+                        return 'a';
+                    case 1:
+                        return 'b';
+                    case 2:
+                        return 'c';
+                    case 3:
+                        return 'd';
+                    case 4:
+                        return 'e';
+                    case 5:
+                        return 'f';
+                    case 6:
+                        return 'g';
+                    case 7:
+                        return 'h';
+                    case 8:
+                        return 'i';
+                }
+                return '';
+            }
+
+            self.SetKP_Position = function (x, y) {
+                var dialog = document.getElementById("theKeyPad");
+                dialog.style.left = "" + x + "px";
+                dialog.style.top = "" + y + "px";
+            };
+
+            window.onresize = function () {
+                window.removeEventListener("mousemove", onKeyPadMove);
+                var modal = document.getElementById("myModal");
+                var dialog = document.getElementById("theKeyPad");
+
+                modal.style.display = "none";
+                dialog.style.display = "none";
+                resetHighlight();
+            }
+
+            window.onclick = function (e) {
+                window.removeEventListener("mousemove", onKeyPadMove);
+                var modal = document.getElementById("myModal");
+                var dialog = document.getElementById("theKeyPad");
+
+                if (event.target == modal) {
+                    modal.style.display = "none";
+                    dialog.style.display = "none";
+                    resetHighlight();
+                    return true;
+                }
+            }
+
+            self.UpdateCell = function (newVal) {
+
+                if (newVal == self.PreviousCellValue()) {
+                    // Can't set the value to the same value it was already... 
+                }
+                else {
+
+                    self.Guess(parseInt(newVal));
+
+                    document.getElementById('hdnGuess').value = self.Guess();
+                    document.getElementById('hdnGuessColumn').value = self.GuessColumn();
+                    document.getElementById('hdnGuessRow').value = self.GuessRow();
+
+                    document.getElementById('MakeAMoveForm').submit();
+                }
+
+            };
+
+            self.GoToMove = function (move) {
+
+                if (move.ID() == self.CurrentMove.ID()) {
+                    self.GuessOrdinal(0);
+                    document.getElementById('hdnGuessOrdinal').value = 0;
+                }
+                else {
+                    self.GuessOrdinal(move.MoveOrder());
+                    document.getElementById('hdnGuessOrdinal').value = move.MoveOrder();
+                }
+
+                self.CurrentMove.ID(move.ID());
+                self.CurrentMove.SudokuPuzzleID(move.SudokuPuzzleID());
+                self.CurrentMove.MoveOrder(move.MoveOrder());
+                self.CurrentMove.CellChanged(move.CellChanged());
+
+                for (var i = 0; i < 9; i++) {
+                    for (var j = 0; j < 9; j++) {
+                        var col_row = self.ConvertNumColToAlpha(i) + (j + 1);
+
+                        self.CurrentMove[col_row].ID(move[col_row].ID());
+                        self.CurrentMove[col_row].SudokuMoveID(move[col_row].SudokuMoveID());
+                        self.CurrentMove[col_row].Value(move[col_row].Value());
+                        self.CurrentMove[col_row].IsAStart(move[col_row].IsAStart());
+                    }
+                }
+
+            };
+
+            function resetHighlight() {
+                var elems = document.querySelectorAll(".SudokuOptionsHighlighted");
+                for (var i = 0; i < elems.length; i++) {
+                    elems[i].classList.remove("SudokuOptionsHighlighted");
+                }
+            }
+
+            function findClickPosition(e) {
+                var posx = 0;
+                var posy = 0;
+
+                if (e.pageX || e.pageY) {
+                    var windowWidth = window.innerWidth;
+                    //var windowHeight = window.innerHeight;
+
+                    if (windowWidth > 991) {
+                        //had to customize the result with a polynomial equation to account for screen resizing
+                        posx =
+                            e.pageX -
+                            (-0.0000037 * windowWidth * windowWidth +
+                                0.5093155 * windowWidth -
+                                465.4196263);
+                    } else if (windowWidth < 992 && windowWidth > 767) {
+                        posx =
+                            e.pageX -
+                            (0.0004 * windowWidth * windowWidth - 0.2205 * windowWidth - 28);
+                    } else if (windowWidth < 768) {
+                        posx = e.pageX - 23;
+                    }
+                    posy = e.pageY - 79;
+                } else if (e.clientX && e.clientY) {
+                    posx =
+                        e.clientX +
+                        document.body.scrollLeft +
+                        document.documentElement.scrollLeft;
+                    posy =
+                        e.clientY +
+                        document.body.scrollTop +
+                        document.documentElement.scrollTop;
+                }
+
+                return {
+                    x: posx,
+                    y: posy
+                };
+            }
+
+            function onKeyPadMove(e) {
+
+                var clickPOS = findClickPosition(e);
+
+                var yoffset = 485;
+                var xoffset = 40;
+
+                var newX = clickPOS.x - yoffset;
+                var newY = clickPOS.y - xoffset;
+
+                SetKeyPadPositionVariables(newX, newY);
+                self.SetKP_Position(newX, newY);
+            }
+
+            function SetKeyPadPositionVariables(newX, newY) {
+                self.KP_POS_X(newX);
+                self.KP_POS_Y(newY);
+                document.getElementById('kp_xpos').value = newX;
+                document.getElementById('kp_ypos').value = newY;
+            }
+
+            $(function () {
+                $("#btnMoveKeyPad").mousedown(function () {
+                    window.addEventListener("mousemove", onKeyPadMove);
+                });
+                window.addEventListener("mouseup", function () {
+                    window.removeEventListener("mousemove", onKeyPadMove);
+                });
+
+                $("#resetToDefaultPosition").click(function (e) {
+
+                    SetKeyPadPositionVariables(0, 0);
+                    self.SetKP_Position(self.LastCellClickPositionX() - 400, self.LastCellClickPositionY() - 75);
+                });
+            })
+        };
+
+        ko.applyBindings(new vm(@Html.Raw(data)));
+
+    </script>
+}
+<br />
+<div id="puzzleSolved" style="display:none">
+    <div class="jumbotron">
+        <h2>Congratulations, You solved the puzzle!!</h2>
+    </div>
+</div>
+
+<div id="invalidSolution" style="display:none">
+    <div class="jumbotron">
+        <h2>The Solution you've provided is not correct. Please try again.</h2>
+    </div>
+</div>
+<br />
+<div data-bind="template: {
+     name: 'currentMove',
+     data: $root.CurrentMove
+}"></div>
+<br />
+<br />
+
+@using (Html.BeginForm("MakeAMove", "Sudoku", FormMethod.Post, new { @id = "MakeAMoveForm" }))
+{
+    @Html.HiddenFor(x => x.GuessOrdinal, new { @id = "hdnGuessOrdinal" })
+    @Html.HiddenFor(x => x.GuessRow, new { @id = "hdnGuessRow" })
+    @Html.HiddenFor(x => x.GuessColumn, new { @id = "hdnGuessColumn" })
+    @Html.HiddenFor(x => x.Guess, new { @id = "hdnGuess" })
+
+    @Html.HiddenFor(x => x.KP_POS_X, new { @id = "kp_xpos" })
+    @Html.HiddenFor(x => x.KP_POS_Y, new { @id = "kp_ypos" })
+
+}
+
+<script id="currentMove" type="text/html">
+    <div id="mySudokuPuzzle" style="left:35px; position: relative">
+        <table>
+            <tr>
+                <td class="blockgroup">
+                    <table class="block blockright blockbottom">
+                        <tr>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.a1.IsAStart()){ $root.handleCellChange(0, 0, e); } }}">
+                                <div class="square" id="A1">
+                                    <span data-bind="text: a1.Value, style: { 'font-weight' : a1.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.b1.IsAStart()){ $root.handleCellChange(0, 1, e); } }}">
+                                <div class="square" id="B1">
+                                    <span data-bind="text: b1.Value, style: { 'font-weight' : b1.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.c1.IsAStart()){ $root.handleCellChange(0, 2, e); } }}">
+                                <div class="square" id="C1">
+                                    <span data-bind="text: c1.Value, style: { 'font-weight' : c1.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.a2.IsAStart()){ $root.handleCellChange(1, 0, e); } }}">
+                                <div class="square" id="A2">
+                                    <span data-bind="text: a2.Value, style: { 'font-weight' : a2.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.b2.IsAStart()){ $root.handleCellChange(1, 1, e); } }}">
+                                <div class="square" id="B2">
+                                    <span data-bind="text: b2.Value, style: { 'font-weight' : b2.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.c2.IsAStart()){ $root.handleCellChange(1, 2, e); } }}">
+                                <div class="square" id="C2">
+                                    <span data-bind="text: c2.Value, style: { 'font-weight' : c2.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.a3.IsAStart()){ $root.handleCellChange(2, 0, e); } }}">
+                                <div class="square" id="A3">
+                                    <span data-bind="text: a3.Value, style: { 'font-weight' : a3.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.b3.IsAStart()){ $root.handleCellChange(2, 1, e); } }}">
+                                <div class="square" id="B3">
+                                    <span data-bind="text: b3.Value, style: { 'font-weight' : b3.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.c3.IsAStart()){ $root.handleCellChange(2, 2, e); } }}">
+                                <div class="square" id="C3">
+                                    <span data-bind="text: c3.Value, style: { 'font-weight' : c3.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+                <td class="blockgroup">
+                    <table class="block blockright blockbottom blockleft">
+                        <tr>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.d1.IsAStart()){ $root.handleCellChange(0, 3, e); } }}">
+                                <div class="square" id="D1">
+                                    <span data-bind="text: d1.Value, style: { 'font-weight' : d1.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.e1.IsAStart()){ $root.handleCellChange(0, 4, e); } }}">
+                                <div class="square" id="E1">
+                                    <span data-bind="text: e1.Value, style: { 'font-weight' : e1.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.f1.IsAStart()){ $root.handleCellChange(0, 5, e); } }}">
+                                <div class="square" id="F1">
+                                    <span data-bind="text: f1.Value, style: { 'font-weight' : f1.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.d2.IsAStart()){ $root.handleCellChange(1, 3, e); } }}">
+                                <div class="square" id="D2">
+                                    <span data-bind="text: d2.Value, style: { 'font-weight' : d2.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.e2.IsAStart()){ $root.handleCellChange(1, 4, e); } }}">
+                                <div class="square" id="E2">
+                                    <span data-bind="text: e2.Value, style: { 'font-weight' : e2.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.f2.IsAStart()){ $root.handleCellChange(1, 5, e); } }}">
+                                <div class="square" id="F2">
+                                    <span data-bind="text: f2.Value, style: { 'font-weight' : f2.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.d3.IsAStart()){ $root.handleCellChange(2, 3, e); } }}">
+                                <div class="square" id="D3">
+                                    <span data-bind="text: d3.Value, style: { 'font-weight' : d3.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.e3.IsAStart()){ $root.handleCellChange(2, 4, e); } }}">
+                                <div class="square" id="E3">
+                                    <span data-bind="text: e3.Value, style: { 'font-weight' : e3.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.f3.IsAStart()){ $root.handleCellChange(2, 5, e); } }}">
+                                <div class="square" id="F3">
+                                    <span data-bind="text: f3.Value, style: { 'font-weight' : f3.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+                <td class="blockgroup">
+                    <table class="block blockleft blockbottom">
+                        <tr>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.g1.IsAStart()){ $root.handleCellChange(0, 6, e); } }}">
+                                <div class="square" id="G1">
+                                    <span data-bind="text: g1.Value, style: { 'font-weight' : g1.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.h1.IsAStart()){ $root.handleCellChange(0, 7, e); } }}">
+                                <div class="square" id="H1">
+                                    <span data-bind="text: h1.Value, style: { 'font-weight' : h1.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.i1.IsAStart()){ $root.handleCellChange(0, 8, e); } }}">
+                                <div class="square" id="I1">
+                                    <span data-bind="text: i1.Value, style: { 'font-weight' : i1.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.g2.IsAStart()){ $root.handleCellChange(1, 6, e); } }}">
+                                <div class="square" id="G2">
+                                    <span data-bind="text: g2.Value, style: { 'font-weight' : g2.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.h2.IsAStart()){ $root.handleCellChange(1, 7, e); } }}">
+                                <div class="square" id="H2">
+                                    <span data-bind="text: h2.Value, style: { 'font-weight' : h2.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.i2.IsAStart()){ $root.handleCellChange(1, 8, e); } }}">
+                                <div class="square" id="I2">
+                                    <span data-bind="text: i2.Value, style: { 'font-weight' : i2.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.g3.IsAStart()){ $root.handleCellChange(2, 6, e); } }}">
+                                <div class="square" id="G3">
+                                    <span data-bind="text: g3.Value, style: { 'font-weight' : g3.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.h3.IsAStart()){ $root.handleCellChange(2, 7, e); } }}">
+                                <div class="square" id="H3">
+                                    <span data-bind="text: h3.Value, style: { 'font-weight' : h3.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.i3.IsAStart()){ $root.handleCellChange(2, 8, e); } }}">
+                                <div class="square" id="I3">
+                                    <span data-bind="text: i3.Value, style: { 'font-weight' : i3.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+            <tr>
+                <td class="blockgroup">
+                    <table class="block blockright blocktop blockbottom">
+                        <tr>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.a4.IsAStart()){ $root.handleCellChange(3, 0, e); } }}">
+                                <div class="square" id="A4">
+                                    <span data-bind="text: a4.Value, style: { 'font-weight' : a4.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.b4.IsAStart()){ $root.handleCellChange(3, 1, e); } }}">
+                                <div class="square" id="B4">
+                                    <span data-bind="text: b4.Value, style: { 'font-weight' : b4.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.c4.IsAStart()){ $root.handleCellChange(3, 2, e); } }}">
+                                <div class="square" id="C4">
+                                    <span data-bind="text: c4.Value, style: { 'font-weight' : c4.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.a5.IsAStart()){ $root.handleCellChange(4, 0, e); } }}">
+                                <div class="square" id="A5">
+                                    <span data-bind="text: a5.Value, style: { 'font-weight' : a5.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.b5.IsAStart()){ $root.handleCellChange(4, 1, e); } }}">
+                                <div class="square" id="B5">
+                                    <span data-bind="text: b5.Value, style: { 'font-weight' : b5.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.c5.IsAStart()){ $root.handleCellChange(4, 2, e); } }}">
+                                <div class="square" id="C5">
+                                    <span data-bind="text: c5.Value, style: { 'font-weight' : c5.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.a6.IsAStart()){ $root.handleCellChange(5, 0, e); } }}">
+                                <div class="square" id="A6">
+                                    <span data-bind="text: a6.Value, style: { 'font-weight' : a6.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.b6.IsAStart()){ $root.handleCellChange(5, 1, e); } }}">
+                                <div class="square" id="B6">
+                                    <span data-bind="text: b6.Value, style: { 'font-weight' : b6.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.c6.IsAStart()){ $root.handleCellChange(5, 2, e); } }}">
+                                <div class="square" id="C6">
+                                    <span data-bind="text: c6.Value, style: { 'font-weight' : c6.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+                <td class="blockgroup">
+                    <table class="block blocktop blockbottom blockright blockleft">
+                        <tr>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.d4.IsAStart()){ $root.handleCellChange(3, 3, e); } }}">
+                                <div class="square" id="D4">
+                                    <span data-bind="text: d4.Value, style: { 'font-weight' : d4.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.e4.IsAStart()){ $root.handleCellChange(3, 4, e); } }}">
+                                <div class="square" id="E4">
+                                    <span data-bind="text: e4.Value, style: { 'font-weight' : e4.IsAStart() ? 'bold' : 'normal' }"></span>
+
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.f4.IsAStart()){ $root.handleCellChange(3, 5, e); } }}">
+                                <div class="square" id="F4">
+                                    <span data-bind="text: f4.Value, style: { 'font-weight' : f4.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.d5.IsAStart()){ $root.handleCellChange(4, 3, e); } }}">
+                                <div class="square" id="D5">
+                                    <span data-bind="text: d5.Value, style: { 'font-weight' : d5.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.e5.IsAStart()){ $root.handleCellChange(4, 4, e); } }}">
+                                <div class="square" id="E5">
+                                    <span data-bind="text: e5.Value, style: { 'font-weight' : e5.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.f5.IsAStart()){ $root.handleCellChange(4, 5, e); } }}">
+                                <div class="square" id="F5">
+                                    <span data-bind="text: f5.Value, style: { 'font-weight' : f5.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.d6.IsAStart()){ $root.handleCellChange(5, 3, e); } }}">
+                                <div class="square" id="D6">
+                                    <span data-bind="text: d6.Value, style: { 'font-weight' : d6.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.e6.IsAStart()){ $root.handleCellChange(5, 4, e); } }}">
+                                <div class="square" id="E6">
+                                    <span data-bind="text: e6.Value, style: { 'font-weight' : e6.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.f6.IsAStart()){ $root.handleCellChange(5, 5, e); } }}">
+                                <div class="square" id="F6">
+                                    <span data-bind="text: f6.Value, style: { 'font-weight' : f6.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+                <td class="blockgroup">
+                    <table class="block blocktop blockbottom blockleft">
+                        <tr>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.g4.IsAStart()){ $root.handleCellChange(3, 6, e); } }}">
+                                <div class="square" id="G4">
+                                    <span data-bind="text: g4.Value, style: { 'font-weight' : g4.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.h4.IsAStart()){ $root.handleCellChange(3, 7, e); } }}">
+                                <div class="square" id="H4">
+                                    <span data-bind="text: h4.Value, style: { 'font-weight' : h4.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.i4.IsAStart()){ $root.handleCellChange(3, 8, e); } }}">
+                                <div class="square" id="I4">
+                                    <span data-bind="text: i4.Value, style: { 'font-weight' : i4.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.g5.IsAStart()){ $root.handleCellChange(4, 6, e); } }}">
+                                <div class="square" id="G5">
+                                    <span data-bind="text: g5.Value, style: { 'font-weight' : g5.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.h5.IsAStart()){ $root.handleCellChange(4, 7, e); } }}">
+                                <div class="square" id="H5">
+                                    <span data-bind="text: h5.Value, style: { 'font-weight' : h5.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.i5.IsAStart()){ $root.handleCellChange(4, 8, e); } }}">
+                                <div class="square" id="I5">
+                                    <span data-bind="text: i5.Value, style: { 'font-weight' : i5.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.g6.IsAStart()){ $root.handleCellChange(5, 6, e); } }}">
+                                <div class="square" id="G6">
+                                    <span data-bind="text: g6.Value, style: { 'font-weight' : g6.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.h6.IsAStart()){ $root.handleCellChange(5, 7, e); } }}">
+                                <div class="square" id="H6">
+                                    <span data-bind="text: h6.Value, style: { 'font-weight' : h6.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.i6.IsAStart()){ $root.handleCellChange(5, 8, e); } }}">
+                                <div class="square" id="I6">
+                                    <span data-bind="text: i6.Value, style: { 'font-weight' : i6.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+            <tr>
+                <td class="blockgroup">
+                    <table class="block blocktop blockright">
+                        <tr>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.a7.IsAStart()){ $root.handleCellChange(6, 0, e); } }}">
+                                <div class="square" id="A7">
+                                    <span data-bind="text: a7.Value, style: { 'font-weight' : a7.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.b7.IsAStart()){ $root.handleCellChange(6, 1, e); } }}">
+                                <div class="square" id="B7">
+                                    <span data-bind="text: b7.Value, style: { 'font-weight' : b7.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.c7.IsAStart()){ $root.handleCellChange(6, 2, e); } }}">
+                                <div class="square" id="C7">
+                                    <span data-bind="text: c7.Value, style: { 'font-weight' : c7.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.a8.IsAStart()){ $root.handleCellChange(7, 0, e); } }}">
+                                <div class="square" id="A8">
+                                    <span data-bind="text: a8.Value, style: { 'font-weight' : a8.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.b8.IsAStart()){ $root.handleCellChange(7, 1, e); } }}">
+                                <div class="square" id="B8">
+                                    <span data-bind="text: b8.Value, style: { 'font-weight' : b8.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.c8.IsAStart()){ $root.handleCellChange(7, 2, e); } }}">
+                                <div class="square" id="C8">
+                                    <span data-bind="text: c8.Value, style: { 'font-weight' : c8.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.a9.IsAStart()){ $root.handleCellChange(8, 0, e); } }}">
+                                <div class="square" id="A9">
+                                    <span data-bind="text: a9.Value, style: { 'font-weight' : a9.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.b9.IsAStart()){ $root.handleCellChange(8, 1, e); } }}">
+                                <div class="square" id="B9">
+                                    <span data-bind="text: b9.Value, style: { 'font-weight' : b9.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.c9.IsAStart()){ $root.handleCellChange(8, 2, e); } }}">
+                                <div class="square" id="C9">
+                                    <span data-bind="text: c9.Value, style: { 'font-weight' : c9.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+                <td class="blockgroup">
+                    <table class="block blocktop blockleft blockright">
+                        <tr>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.d7.IsAStart()){ $root.handleCellChange(6, 3, e); } }}">
+                                <div class="square" id="D7">
+                                    <span data-bind="text: d7.Value, style: { 'font-weight' : d7.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.e7.IsAStart()){ $root.handleCellChange(6, 4, e); } }}">
+                                <div class="square" id="E7">
+                                    <span data-bind="text: e7.Value, style: { 'font-weight' : e7.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.f7.IsAStart()){ $root.handleCellChange(6, 5, e); } }}">
+                                <div class="square" id="F7">
+                                    <span data-bind="text: f7.Value, style: { 'font-weight' : f7.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.d8.IsAStart()){ $root.handleCellChange(7, 3, e); } }}">
+                                <div class="square" id="D8">
+                                    <span data-bind="text: d8.Value, style: { 'font-weight' : d8.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.e8.IsAStart()){ $root.handleCellChange(7, 4, e); } }}">
+                                <div class="square" id="E8">
+                                    <span data-bind="text: e8.Value, style: { 'font-weight' : e8.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.f8.IsAStart()){ $root.handleCellChange(7, 5, e); } }}">
+                                <div class="square" id="F8">
+                                    <span data-bind="text: f8.Value, style: { 'font-weight' : f8.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.d9.IsAStart()){ $root.handleCellChange(8, 3, e); } }}">
+                                <div class="square" id="D9">
+                                    <span data-bind="text: d9.Value, style: { 'font-weight' : d9.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.e9.IsAStart()){ $root.handleCellChange(8, 4, e); } }}">
+                                <div class="square" id="E9">
+                                    <span data-bind="text: e9.Value, style: { 'font-weight' : e9.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.f9.IsAStart()){ $root.handleCellChange(8, 5, e); } }}">
+                                <div class="square" id="F9">
+                                    <span data-bind="text: f9.Value, style: { 'font-weight' : f9.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+                <td class="blockgroup">
+                    <table class="block blockleft blocktop">
+                        <tr>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.g7.IsAStart()){ $root.handleCellChange(6, 6, e); } }}">
+                                <div class="square" id="G7">
+                                    <span data-bind="text: g7.Value, style: { 'font-weight' : g7.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.h7.IsAStart()){ $root.handleCellChange(6, 7, e); } }}">
+                                <div class="square" id="H7">
+                                    <span data-bind="text: h7.Value, style: { 'font-weight' : h7.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.i7.IsAStart()){ $root.handleCellChange(6, 8, e); } }}">
+                                <div class="square" id="I7">
+                                    <span data-bind="text: i7.Value, style: { 'font-weight' : i7.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.g8.IsAStart()){ $root.handleCellChange(7, 6, e); } }}">
+                                <div class="square" id="G8">
+                                    <span data-bind="text: g8.Value, style: { 'font-weight' : g8.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.h8.IsAStart()){ $root.handleCellChange(7, 7, e); } }}">
+                                <div class="square" id="H8">
+                                    <span data-bind="text: h8.Value, style: { 'font-weight' : h8.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.i8.IsAStart()){ $root.handleCellChange(7, 8, e); } }}">
+                                <div class="square" id="I8">
+                                    <span data-bind="text: i8.Value, style: { 'font-weight' : i8.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.g9.IsAStart()){ $root.handleCellChange(8, 6, e); } }}">
+                                <div class="square" id="G9">
+                                    <span data-bind="text: g9.Value, style: { 'font-weight' : g9.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.h9.IsAStart()){ $root.handleCellChange(8, 7, e); } }}">
+                                <div class="square" id="H9">
+                                    <span data-bind="text: h9.Value, style: { 'font-weight' : h9.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                            <td class="cell" data-bind="event: { click: function(vm, e){ if(!vm.i9.IsAStart()){ $root.handleCellChange(8, 8, e); } }}">
+                                <div class="square" id="I9">
+                                    <span data-bind="text: i9.Value, style: { 'font-weight' : i9.IsAStart() ? 'bold' : 'normal' }"></span>
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </div>
+</script>
+
+<br />
+Moves:
+<div>
+    <div data-bind="foreach: Puzzle">
+        <div style="display:inline-block">
+            &nbsp;<a href="#" data-bind="text: CellChanged, event: { click: function(vm, e){
+                    $root.GoToMove(vm); }
+               },
+               style: { 'font-weight': $data.ID() == $root.CurrentMove.ID() ? 'bold' : 'normal' }"></a>
+        </div>
+    </div>
+</div>
+
+<div id="myModal" class="keypadModal" style="display:none">
+    <div class="keypad-content" id="theKeyPad">
+        <table style="border:double">
+            <tr style="line-height: 10px;">
+                <td colspan="3">
+                    <button title="Click and drag to new position" id="btnMoveKeyPad" class="keyPadButton" style="width: 75px; margin-top:2px"><em style="font-size:xx-small">&nbsp;</em></button>
+                    <img src="@Url.Content("~/images/RepeatHS.png")" id="resetToDefaultPosition" title="Reset to default position"/>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <button class="keyPadButton" data-bind="event: { click: function(vm, e){ $root.UpdateCell(1); }}">1</button>
+                </td>
+                <td>
+                    <button class="keyPadButton" data-bind="event: { click: function(vm, e){ $root.UpdateCell(2); }}">2</button>
+                </td>
+                <td>
+                    <button class="keyPadButton" data-bind="event: { click: function(vm, e){ $root.UpdateCell(3); }}">3</button>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <button class="keyPadButton" data-bind="event: { click: function(vm, e){ $root.UpdateCell(4); }}">4</button>
+                </td>
+                <td>
+                    <button class="keyPadButton" data-bind="event: { click: function(vm, e){ $root.UpdateCell(5); }}">5</button>
+                </td>
+                <td>
+                    <button class="keyPadButton" data-bind="event: { click: function(vm, e){ $root.UpdateCell(6); }}">6</button>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <button class="keyPadButton" data-bind="event: { click: function(vm, e){ $root.UpdateCell(7); }}">7</button>
+                </td>
+                <td>
+                    <button class="keyPadButton" data-bind="event: { click: function(vm, e){ $root.UpdateCell(8); }}">8</button>
+                </td>
+                <td>
+                    <button class="keyPadButton" data-bind="event: { click: function(vm, e){ $root.UpdateCell(9); }}">9</button>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="3">
+                    <button class="keyPadButton" style="width: 95px; height: 30px"
+                            data-bind="event: { click: function(vm, e){ $root.UpdateCell(-1); }}, attr: { disabled: ClearDisabled }">
+                        -clear-
+                    </button>
+                </td>
+            </tr>
+        </table>
+    </div>
+</div>

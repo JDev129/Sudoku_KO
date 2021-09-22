@@ -16,5 +16,10 @@ namespace SudokuMaster.Models
         public int DiabolicalCount { get; set; }
 
         public bool AllowInvalidMoves { get; set; }
+        
+        public bool PlayActiveGame { get; set; }
+
+        public bool HasActiveGame { get; set; }
+        public int ActiveGameID { get; set; }
     }
 }

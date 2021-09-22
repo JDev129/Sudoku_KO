@@ -34,55 +34,7 @@ namespace SudokuMaster.Controllers
                 ActiveGameID = latestGame != null ? latestGame.ID : -1
             });
         }
-
-        public ActionResult TestFailure()
-        {
-            var myNewPuzzle = new NewPuzzle();
-            if (myNewPuzzle.isValidPuzzle)
-            {
-                var latestGame = DateTime.Now;
-                dbCtx.Games.Add(new ASudokuGame()
-                {
-                    DateTimeStarted = latestGame,
-                    Owner = Environment.UserName,
-                    Domain = Environment.UserDomainName,
-                    Moves = myNewPuzzle.Moves,
-                    Solution = myNewPuzzle.Solution,
-                    Difficulty = "InvalidTest",
-                    FinishedSuccesfully = false
-                });
-                dbCtx.SaveChanges();
-                var newRecord = dbCtx.Games.Where(x => x.Owner == Environment.UserName &&
-                                                  x.Domain == Environment.UserDomainName)
-                                           .OrderByDescending(x => x.ID).FirstOrDefault();
-                var newID = 0;
-                if (newRecord != null)
-                    newID = newRecord.ID;
-                return View("Play", new SudokuViewModel()
-                {
-                    ID = newID,
-                    CurrentMove = myNewPuzzle.Moves.FirstOrDefault(),
-                    Puzzle = myNewPuzzle.Moves,
-                    Solution = myNewPuzzle.Solution,
-                    DifficultyLevel = "Invalid"
-                });
-            }
-            else
-            {
-                return View("Play", new SudokuViewModel()
-                {
-                    //ID = newID,
-                    //CurrentMove = myNewPuzzle.Moves.FirstOrDefault(),
-                    //Puzzle = myNewPuzzle.Moves,
-                    //Solution = myNewPuzzle.Solution,
-                    //DifficultyLevel = difficulty
-                    CurrentMove = new SudokuMove(),
-                    Puzzle = new System.Collections.Generic.List<SudokuMove>(),
-                    Solution = new SudokuMove()
-                });
-            }
-        }
-
+        
         public ActionResult Play(NewGameViewModel vm)
         {
             if (vm.PlayActiveGame)

@@ -1,4 +1,5 @@
-﻿using SudokuMaster.Sudoku_Infrastructure;
+using SudokuMaster.Helpers;
+using SudokuMaster.Sudoku_Infrastructure;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -16,9 +17,34 @@ namespace SudokuMaster.Models
         public bool Solved { get; set; }
         public bool InvalidSolution { get; set; }
 
+        public SudokuPuzzle()
+        {
+            var createdSolution = SudHelper.CreateFailedSudoku();
+            if (createdSolution.Item1)
+            {
+                isValidPuzzle = true;
+                Solution = createdSolution.Item3;
+                Solution.CellChanged = "Solution";
+                Solution.SudokuPuzzleID = -1;
+                createdSolution.Item2.CellChanged = "Start";
+                createdSolution.Item2.ID = 1;
+                createdSolution.Item2.MoveOrder = 1;
+                MyMoves = new List<SudokuMove>()
+                {
+                    createdSolution.Item2
+                };
+            }
+            else
+            {
+                isValidPuzzle = false;
+                this.MyMoves = new List<SudokuMove>() { new SudokuMove() };
+                this.Solution = new SudokuMove();
+            }
+        }
+
         public SudokuPuzzle(int numberOfStarts)
         {
-            if (numberOfStarts < 17 || numberOfStarts > 79)
+            if (numberOfStarts < 30 || numberOfStarts > 79)
                 throw new ArgumentOutOfRangeException("numberOfStarts");
 
             var createdSolution = SudHelper.CreateSudoku(numberOfStarts);
@@ -27,6 +53,7 @@ namespace SudokuMaster.Models
                 isValidPuzzle = true;
                 Solution = createdSolution.Item3;
                 Solution.CellChanged = "Solution";
+                Solution.SudokuPuzzleID = -1;
                 createdSolution.Item2.CellChanged = "Start";
                 createdSolution.Item2.ID = 1;
                 createdSolution.Item2.MoveOrder = 1;
@@ -91,7 +118,7 @@ namespace SudokuMaster.Models
         private void CheckPuzzleSolved()
         {
             var lastMove = this.Moves.Last();
-            var allMovesPlayed = lastMove.AllCellsFilledOut;
+            var allMovesPlayed = lastMove.AllCellsFilledOut();
             this.Solved = (allMovesPlayed) ? MovesAreTheSame(lastMove, this.Solution): false;
             this.InvalidSolution = !this.Solved && allMovesPlayed;
         }
@@ -185,87 +212,87 @@ namespace SudokuMaster.Models
                 ID = copyFrom.ID + 1,
                 SudokuPuzzleID = copyFrom.SudokuPuzzleID,
                 MoveOrder = (copyFrom.MoveOrder + 1),
-                a1 = new SudokuCell() { IsAStart = copyFrom.a1.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.a1.Value },
-                a2 = new SudokuCell() { IsAStart = copyFrom.a2.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.a2.Value },
-                a3 = new SudokuCell() { IsAStart = copyFrom.a3.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.a3.Value },
-                a4 = new SudokuCell() { IsAStart = copyFrom.a4.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.a4.Value },
-                a5 = new SudokuCell() { IsAStart = copyFrom.a5.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.a5.Value },
-                a6 = new SudokuCell() { IsAStart = copyFrom.a6.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.a6.Value },
-                a7 = new SudokuCell() { IsAStart = copyFrom.a7.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.a7.Value },
-                a8 = new SudokuCell() { IsAStart = copyFrom.a8.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.a8.Value },
-                a9 = new SudokuCell() { IsAStart = copyFrom.a9.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.a9.Value },
-                b1 = new SudokuCell() { IsAStart = copyFrom.b1.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.b1.Value },
-                b2 = new SudokuCell() { IsAStart = copyFrom.b2.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.b2.Value },
-                b3 = new SudokuCell() { IsAStart = copyFrom.b3.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.b3.Value },
-                b4 = new SudokuCell() { IsAStart = copyFrom.b4.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.b4.Value },
-                b5 = new SudokuCell() { IsAStart = copyFrom.b5.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.b5.Value },
-                b6 = new SudokuCell() { IsAStart = copyFrom.b6.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.b6.Value },
-                b7 = new SudokuCell() { IsAStart = copyFrom.b7.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.b7.Value },
-                b8 = new SudokuCell() { IsAStart = copyFrom.b8.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.b8.Value },
-                b9 = new SudokuCell() { IsAStart = copyFrom.b9.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.b9.Value },
-                c1 = new SudokuCell() { IsAStart = copyFrom.c1.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.c1.Value },
-                c2 = new SudokuCell() { IsAStart = copyFrom.c2.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.c2.Value },
-                c3 = new SudokuCell() { IsAStart = copyFrom.c3.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.c3.Value },
-                c4 = new SudokuCell() { IsAStart = copyFrom.c4.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.c4.Value },
-                c5 = new SudokuCell() { IsAStart = copyFrom.c5.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.c5.Value },
-                c6 = new SudokuCell() { IsAStart = copyFrom.c6.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.c6.Value },
-                c7 = new SudokuCell() { IsAStart = copyFrom.c7.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.c7.Value },
-                c8 = new SudokuCell() { IsAStart = copyFrom.c8.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.c8.Value },
-                c9 = new SudokuCell() { IsAStart = copyFrom.c9.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.c9.Value },
-                d1 = new SudokuCell() { IsAStart = copyFrom.d1.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.d1.Value },
-                d2 = new SudokuCell() { IsAStart = copyFrom.d2.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.d2.Value },
-                d3 = new SudokuCell() { IsAStart = copyFrom.d3.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.d3.Value },
-                d4 = new SudokuCell() { IsAStart = copyFrom.d4.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.d4.Value },
-                d5 = new SudokuCell() { IsAStart = copyFrom.d5.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.d5.Value },
-                d6 = new SudokuCell() { IsAStart = copyFrom.d6.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.d6.Value },
-                d7 = new SudokuCell() { IsAStart = copyFrom.d7.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.d7.Value },
-                d8 = new SudokuCell() { IsAStart = copyFrom.d8.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.d8.Value },
-                d9 = new SudokuCell() { IsAStart = copyFrom.d9.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.d9.Value },
-                e1 = new SudokuCell() { IsAStart = copyFrom.e1.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.e1.Value },
-                e2 = new SudokuCell() { IsAStart = copyFrom.e2.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.e2.Value },
-                e3 = new SudokuCell() { IsAStart = copyFrom.e3.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.e3.Value },
-                e4 = new SudokuCell() { IsAStart = copyFrom.e4.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.e4.Value },
-                e5 = new SudokuCell() { IsAStart = copyFrom.e5.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.e5.Value },
-                e6 = new SudokuCell() { IsAStart = copyFrom.e6.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.e6.Value },
-                e7 = new SudokuCell() { IsAStart = copyFrom.e7.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.e7.Value },
-                e8 = new SudokuCell() { IsAStart = copyFrom.e8.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.e8.Value },
-                e9 = new SudokuCell() { IsAStart = copyFrom.e9.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.e9.Value },
-                f1 = new SudokuCell() { IsAStart = copyFrom.f1.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.f1.Value },
-                f2 = new SudokuCell() { IsAStart = copyFrom.f2.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.f2.Value },
-                f3 = new SudokuCell() { IsAStart = copyFrom.f3.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.f3.Value },
-                f4 = new SudokuCell() { IsAStart = copyFrom.f4.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.f4.Value },
-                f5 = new SudokuCell() { IsAStart = copyFrom.f5.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.f5.Value },
-                f6 = new SudokuCell() { IsAStart = copyFrom.f6.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.f6.Value },
-                f7 = new SudokuCell() { IsAStart = copyFrom.f7.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.f7.Value },
-                f8 = new SudokuCell() { IsAStart = copyFrom.f8.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.f8.Value },
-                f9 = new SudokuCell() { IsAStart = copyFrom.f9.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.f9.Value },
-                g1 = new SudokuCell() { IsAStart = copyFrom.g1.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.g1.Value },
-                g2 = new SudokuCell() { IsAStart = copyFrom.g2.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.g2.Value },
-                g3 = new SudokuCell() { IsAStart = copyFrom.g3.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.g3.Value },
-                g4 = new SudokuCell() { IsAStart = copyFrom.g4.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.g4.Value },
-                g5 = new SudokuCell() { IsAStart = copyFrom.g5.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.g5.Value },
-                g6 = new SudokuCell() { IsAStart = copyFrom.g6.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.g6.Value },
-                g7 = new SudokuCell() { IsAStart = copyFrom.g7.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.g7.Value },
-                g8 = new SudokuCell() { IsAStart = copyFrom.g8.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.g8.Value },
-                g9 = new SudokuCell() { IsAStart = copyFrom.g9.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.g9.Value },
-                h1 = new SudokuCell() { IsAStart = copyFrom.h1.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.h1.Value },
-                h2 = new SudokuCell() { IsAStart = copyFrom.h2.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.h2.Value },
-                h3 = new SudokuCell() { IsAStart = copyFrom.h3.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.h3.Value },
-                h4 = new SudokuCell() { IsAStart = copyFrom.h4.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.h4.Value },
-                h5 = new SudokuCell() { IsAStart = copyFrom.h5.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.h5.Value },
-                h6 = new SudokuCell() { IsAStart = copyFrom.h6.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.h6.Value },
-                h7 = new SudokuCell() { IsAStart = copyFrom.h7.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.h7.Value },
-                h8 = new SudokuCell() { IsAStart = copyFrom.h8.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.h8.Value },
-                h9 = new SudokuCell() { IsAStart = copyFrom.h9.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.h9.Value },
-                i1 = new SudokuCell() { IsAStart = copyFrom.i1.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.i1.Value },
-                i2 = new SudokuCell() { IsAStart = copyFrom.i2.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.i2.Value },
-                i3 = new SudokuCell() { IsAStart = copyFrom.i3.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.i3.Value },
-                i4 = new SudokuCell() { IsAStart = copyFrom.i4.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.i4.Value },
-                i5 = new SudokuCell() { IsAStart = copyFrom.i5.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.i5.Value },
-                i6 = new SudokuCell() { IsAStart = copyFrom.i6.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.i6.Value },
-                i7 = new SudokuCell() { IsAStart = copyFrom.i7.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.i7.Value },
-                i8 = new SudokuCell() { IsAStart = copyFrom.i8.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.i8.Value },
-                i9 = new SudokuCell() { IsAStart = copyFrom.i9.IsAStart, SudokuMoveID = (copyFrom.ID + 1), Value = copyFrom.i9.Value }
+                a1 = new SudokuCell() { IsAStart = copyFrom.a1.IsAStart, Value = copyFrom.a1.Value },
+                a2 = new SudokuCell() { IsAStart = copyFrom.a2.IsAStart, Value = copyFrom.a2.Value },
+                a3 = new SudokuCell() { IsAStart = copyFrom.a3.IsAStart, Value = copyFrom.a3.Value },
+                a4 = new SudokuCell() { IsAStart = copyFrom.a4.IsAStart, Value = copyFrom.a4.Value },
+                a5 = new SudokuCell() { IsAStart = copyFrom.a5.IsAStart, Value = copyFrom.a5.Value },
+                a6 = new SudokuCell() { IsAStart = copyFrom.a6.IsAStart, Value = copyFrom.a6.Value },
+                a7 = new SudokuCell() { IsAStart = copyFrom.a7.IsAStart, Value = copyFrom.a7.Value },
+                a8 = new SudokuCell() { IsAStart = copyFrom.a8.IsAStart, Value = copyFrom.a8.Value },
+                a9 = new SudokuCell() { IsAStart = copyFrom.a9.IsAStart, Value = copyFrom.a9.Value },
+                b1 = new SudokuCell() { IsAStart = copyFrom.b1.IsAStart, Value = copyFrom.b1.Value },
+                b2 = new SudokuCell() { IsAStart = copyFrom.b2.IsAStart, Value = copyFrom.b2.Value },
+                b3 = new SudokuCell() { IsAStart = copyFrom.b3.IsAStart, Value = copyFrom.b3.Value },
+                b4 = new SudokuCell() { IsAStart = copyFrom.b4.IsAStart, Value = copyFrom.b4.Value },
+                b5 = new SudokuCell() { IsAStart = copyFrom.b5.IsAStart, Value = copyFrom.b5.Value },
+                b6 = new SudokuCell() { IsAStart = copyFrom.b6.IsAStart, Value = copyFrom.b6.Value },
+                b7 = new SudokuCell() { IsAStart = copyFrom.b7.IsAStart, Value = copyFrom.b7.Value },
+                b8 = new SudokuCell() { IsAStart = copyFrom.b8.IsAStart, Value = copyFrom.b8.Value },
+                b9 = new SudokuCell() { IsAStart = copyFrom.b9.IsAStart, Value = copyFrom.b9.Value },
+                c1 = new SudokuCell() { IsAStart = copyFrom.c1.IsAStart, Value = copyFrom.c1.Value },
+                c2 = new SudokuCell() { IsAStart = copyFrom.c2.IsAStart, Value = copyFrom.c2.Value },
+                c3 = new SudokuCell() { IsAStart = copyFrom.c3.IsAStart, Value = copyFrom.c3.Value },
+                c4 = new SudokuCell() { IsAStart = copyFrom.c4.IsAStart, Value = copyFrom.c4.Value },
+                c5 = new SudokuCell() { IsAStart = copyFrom.c5.IsAStart, Value = copyFrom.c5.Value },
+                c6 = new SudokuCell() { IsAStart = copyFrom.c6.IsAStart, Value = copyFrom.c6.Value },
+                c7 = new SudokuCell() { IsAStart = copyFrom.c7.IsAStart, Value = copyFrom.c7.Value },
+                c8 = new SudokuCell() { IsAStart = copyFrom.c8.IsAStart, Value = copyFrom.c8.Value },
+                c9 = new SudokuCell() { IsAStart = copyFrom.c9.IsAStart, Value = copyFrom.c9.Value },
+                d1 = new SudokuCell() { IsAStart = copyFrom.d1.IsAStart, Value = copyFrom.d1.Value },
+                d2 = new SudokuCell() { IsAStart = copyFrom.d2.IsAStart, Value = copyFrom.d2.Value },
+                d3 = new SudokuCell() { IsAStart = copyFrom.d3.IsAStart, Value = copyFrom.d3.Value },
+                d4 = new SudokuCell() { IsAStart = copyFrom.d4.IsAStart, Value = copyFrom.d4.Value },
+                d5 = new SudokuCell() { IsAStart = copyFrom.d5.IsAStart, Value = copyFrom.d5.Value },
+                d6 = new SudokuCell() { IsAStart = copyFrom.d6.IsAStart, Value = copyFrom.d6.Value },
+                d7 = new SudokuCell() { IsAStart = copyFrom.d7.IsAStart, Value = copyFrom.d7.Value },
+                d8 = new SudokuCell() { IsAStart = copyFrom.d8.IsAStart, Value = copyFrom.d8.Value },
+                d9 = new SudokuCell() { IsAStart = copyFrom.d9.IsAStart, Value = copyFrom.d9.Value },
+                e1 = new SudokuCell() { IsAStart = copyFrom.e1.IsAStart, Value = copyFrom.e1.Value },
+                e2 = new SudokuCell() { IsAStart = copyFrom.e2.IsAStart, Value = copyFrom.e2.Value },
+                e3 = new SudokuCell() { IsAStart = copyFrom.e3.IsAStart, Value = copyFrom.e3.Value },
+                e4 = new SudokuCell() { IsAStart = copyFrom.e4.IsAStart, Value = copyFrom.e4.Value },
+                e5 = new SudokuCell() { IsAStart = copyFrom.e5.IsAStart, Value = copyFrom.e5.Value },
+                e6 = new SudokuCell() { IsAStart = copyFrom.e6.IsAStart, Value = copyFrom.e6.Value },
+                e7 = new SudokuCell() { IsAStart = copyFrom.e7.IsAStart, Value = copyFrom.e7.Value },
+                e8 = new SudokuCell() { IsAStart = copyFrom.e8.IsAStart, Value = copyFrom.e8.Value },
+                e9 = new SudokuCell() { IsAStart = copyFrom.e9.IsAStart, Value = copyFrom.e9.Value },
+                f1 = new SudokuCell() { IsAStart = copyFrom.f1.IsAStart, Value = copyFrom.f1.Value },
+                f2 = new SudokuCell() { IsAStart = copyFrom.f2.IsAStart, Value = copyFrom.f2.Value },
+                f3 = new SudokuCell() { IsAStart = copyFrom.f3.IsAStart, Value = copyFrom.f3.Value },
+                f4 = new SudokuCell() { IsAStart = copyFrom.f4.IsAStart, Value = copyFrom.f4.Value },
+                f5 = new SudokuCell() { IsAStart = copyFrom.f5.IsAStart, Value = copyFrom.f5.Value },
+                f6 = new SudokuCell() { IsAStart = copyFrom.f6.IsAStart, Value = copyFrom.f6.Value },
+                f7 = new SudokuCell() { IsAStart = copyFrom.f7.IsAStart, Value = copyFrom.f7.Value },
+                f8 = new SudokuCell() { IsAStart = copyFrom.f8.IsAStart, Value = copyFrom.f8.Value },
+                f9 = new SudokuCell() { IsAStart = copyFrom.f9.IsAStart, Value = copyFrom.f9.Value },
+                g1 = new SudokuCell() { IsAStart = copyFrom.g1.IsAStart, Value = copyFrom.g1.Value },
+                g2 = new SudokuCell() { IsAStart = copyFrom.g2.IsAStart, Value = copyFrom.g2.Value },
+                g3 = new SudokuCell() { IsAStart = copyFrom.g3.IsAStart, Value = copyFrom.g3.Value },
+                g4 = new SudokuCell() { IsAStart = copyFrom.g4.IsAStart, Value = copyFrom.g4.Value },
+                g5 = new SudokuCell() { IsAStart = copyFrom.g5.IsAStart, Value = copyFrom.g5.Value },
+                g6 = new SudokuCell() { IsAStart = copyFrom.g6.IsAStart, Value = copyFrom.g6.Value },
+                g7 = new SudokuCell() { IsAStart = copyFrom.g7.IsAStart, Value = copyFrom.g7.Value },
+                g8 = new SudokuCell() { IsAStart = copyFrom.g8.IsAStart, Value = copyFrom.g8.Value },
+                g9 = new SudokuCell() { IsAStart = copyFrom.g9.IsAStart, Value = copyFrom.g9.Value },
+                h1 = new SudokuCell() { IsAStart = copyFrom.h1.IsAStart, Value = copyFrom.h1.Value },
+                h2 = new SudokuCell() { IsAStart = copyFrom.h2.IsAStart, Value = copyFrom.h2.Value },
+                h3 = new SudokuCell() { IsAStart = copyFrom.h3.IsAStart, Value = copyFrom.h3.Value },
+                h4 = new SudokuCell() { IsAStart = copyFrom.h4.IsAStart, Value = copyFrom.h4.Value },
+                h5 = new SudokuCell() { IsAStart = copyFrom.h5.IsAStart, Value = copyFrom.h5.Value },
+                h6 = new SudokuCell() { IsAStart = copyFrom.h6.IsAStart, Value = copyFrom.h6.Value },
+                h7 = new SudokuCell() { IsAStart = copyFrom.h7.IsAStart, Value = copyFrom.h7.Value },
+                h8 = new SudokuCell() { IsAStart = copyFrom.h8.IsAStart, Value = copyFrom.h8.Value },
+                h9 = new SudokuCell() { IsAStart = copyFrom.h9.IsAStart, Value = copyFrom.h9.Value },
+                i1 = new SudokuCell() { IsAStart = copyFrom.i1.IsAStart, Value = copyFrom.i1.Value },
+                i2 = new SudokuCell() { IsAStart = copyFrom.i2.IsAStart, Value = copyFrom.i2.Value },
+                i3 = new SudokuCell() { IsAStart = copyFrom.i3.IsAStart, Value = copyFrom.i3.Value },
+                i4 = new SudokuCell() { IsAStart = copyFrom.i4.IsAStart, Value = copyFrom.i4.Value },
+                i5 = new SudokuCell() { IsAStart = copyFrom.i5.IsAStart, Value = copyFrom.i5.Value },
+                i6 = new SudokuCell() { IsAStart = copyFrom.i6.IsAStart, Value = copyFrom.i6.Value },
+                i7 = new SudokuCell() { IsAStart = copyFrom.i7.IsAStart, Value = copyFrom.i7.Value },
+                i8 = new SudokuCell() { IsAStart = copyFrom.i8.IsAStart, Value = copyFrom.i8.Value },
+                i9 = new SudokuCell() { IsAStart = copyFrom.i9.IsAStart, Value = copyFrom.i9.Value }
             };
 
         private void AddGuess(string col, string row, SudokuMove move, string guess)

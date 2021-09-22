@@ -4,6 +4,8 @@ Sudoku was the first application I wrote using react.js. However due to a series
 
 The majority of the heavy lifting is done in the SudokuPuzzle class and the static SudHelper class as far as handling the server side puzzle logic. The front end knockout code is located in the View called Play. 
 
-Very soon I will post a link to the demo application. 
+Try ou the application...
+
+https://www.farmfoodweb.net
 
 Enjoy!

@@ -17,31 +17,6 @@ namespace SudokuMaster.Models
         public bool Solved { get; set; }
         public bool InvalidSolution { get; set; }
 
-        public SudokuPuzzle()
-        {
-            var createdSolution = SudHelper.CreateFailedSudoku();
-            if (createdSolution.Item1)
-            {
-                isValidPuzzle = true;
-                Solution = createdSolution.Item3;
-                Solution.CellChanged = "Solution";
-                Solution.SudokuPuzzleID = -1;
-                createdSolution.Item2.CellChanged = "Start";
-                createdSolution.Item2.ID = 1;
-                createdSolution.Item2.MoveOrder = 1;
-                MyMoves = new List<SudokuMove>()
-                {
-                    createdSolution.Item2
-                };
-            }
-            else
-            {
-                isValidPuzzle = false;
-                this.MyMoves = new List<SudokuMove>() { new SudokuMove() };
-                this.Solution = new SudokuMove();
-            }
-        }
-
         public SudokuPuzzle(int numberOfStarts)
         {
             if (numberOfStarts < 30 || numberOfStarts > 79)

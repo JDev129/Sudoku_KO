@@ -13,8 +13,9 @@ namespace SudokuMaster.Controllers
     {
         private ApplicationModel dbCtx;
 
-        public SudokuController()
+        public SudokuController(ApplicationModel dbCtx)
         {
+            this.dbCtx = dbCtx;
         }
 
         public ActionResult Index()

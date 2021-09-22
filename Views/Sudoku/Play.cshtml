@@ -1,4 +1,4 @@
-﻿@model SudokuMaster.Models.SudokuViewModel
+@model SudokuMaster.Models.SudokuViewModel
 @{ var data = new System.Web.Script.Serialization.JavaScriptSerializer().Serialize(Model); }
 @section Styles{
     <link href="@Url.Content("~/Content/Sudoku.css")" rel="stylesheet" />
@@ -25,22 +25,25 @@
             ko.mapping.fromJS(data, vmMapping, self);
 
             self.GuessOrdinal(0);
-            document.getElementById('hdnGuessOrdinal').value = 0;
+            //document.getElementById('hdnGuessOrdinal').value = 0;
             self.LastCellClickPositionX = ko.observable(0);
             self.LastCellClickPositionY = ko.observable(0);
             self.ClearDisabled = ko.observable(false);
             self.PreviousCellValue = ko.observable("");
+            self.CheckPuzzleSolved = function () {
+                if (self.PuzzleSolved()) {
+                    document.getElementById('puzzleSolved').style.display = "block";
+                    confetti({
+                        spread: 180
+                    });
+                }
+                else if (self.InvalidSolution()) {
+                    document.getElementById('invalidSolution').style.display = "block";
+                }
 
+            };
 
-            if (self.PuzzleSolved()) {
-                document.getElementById('puzzleSolved').style.display = "block";
-                confetti({
-                    spread: 180
-                });
-            }
-            else if (self.InvalidSolution()) {
-                document.getElementById('invalidSolution').style.display = "block";
-            }
+            self.CheckPuzzleSolved();
 
             self.handleCellChange = function (row, col, e) {
 
@@ -68,9 +71,15 @@
 
                 self.LastCellClickPositionX(pos.x);
                 self.LastCellClickPositionY(pos.y);
-
+                //
+                var isTouchDevice = 'ontouchstart' in document.documentElement;
                 if (self.KP_POS_X() == 0 && self.KP_POS_Y() == 0) {
-                    self.SetKP_Position(pos.x - 400, pos.y - 75);
+                    if (isTouchDevice) {
+                        self.SetKP_Position(pos.x - 240, pos.y - 100);
+                    }
+                    else {
+                        self.SetKP_Position(pos.x - 400, pos.y - 75);
+                    }
                 }
                 else {
                     self.SetKP_Position(self.KP_POS_X(), self.KP_POS_Y());
@@ -109,7 +118,19 @@
             };
 
             window.onresize = function () {
+                self.ClearAll();
+            }
+
+            self.ClearOutModalKP = function (modal) {
+                var dialog = document.getElementById("theKeyPad");
+                modal.style.display = "none";
+                dialog.style.display = "none";
+                resetHighlight();
+            };
+
+            self.ClearAll = function () {
                 window.removeEventListener("mousemove", onKeyPadMove);
+                window.removeEventListener("touchmove", onKeyPadMoveTouch);
                 var modal = document.getElementById("myModal");
                 var dialog = document.getElementById("theKeyPad");
 
@@ -117,34 +138,37 @@
                 dialog.style.display = "none";
                 resetHighlight();
             }
-
             window.onclick = function (e) {
                 window.removeEventListener("mousemove", onKeyPadMove);
+                window.removeEventListener("touchmove", onKeyPadMoveTouch);
                 var modal = document.getElementById("myModal");
-                var dialog = document.getElementById("theKeyPad");
+                //var dialog = document.getElementById("theKeyPad");
 
                 if (event.target == modal) {
-                    modal.style.display = "none";
-                    dialog.style.display = "none";
-                    resetHighlight();
+                    self.ClearOutModalKP(modal);
                     return true;
                 }
             }
 
+            self.SubmitGuess = function () {
+                window.location = GetPath('/Sudoku/MakeAMove?gameID=' + self.ID() + '&guess=' + self.Guess() + '&guessOrdinal=' + self.GuessOrdinal() + '&guessColumn=' + self.GuessColumn() + '&guessRow=' + self.GuessRow());
+            };
+
             self.UpdateCell = function (newVal) {
 
                 if (newVal == self.PreviousCellValue()) {
-                    // Can't set the value to the same value it was already... 
+                    // Can't set the value to the same value it was already...
                 }
                 else {
 
                     self.Guess(parseInt(newVal));
 
-                    document.getElementById('hdnGuess').value = self.Guess();
-                    document.getElementById('hdnGuessColumn').value = self.GuessColumn();
-                    document.getElementById('hdnGuessRow').value = self.GuessRow();
+                    //document.getElementById('hdnGuess').value = self.Guess();
+                    //document.getElementById('hdnGuessColumn').value = self.GuessColumn();
+                    //document.getElementById('hdnGuessRow').value = self.GuessRow();
 
-                    document.getElementById('MakeAMoveForm').submit();
+                    self.SubmitGuess();
+                    //document.getElementById('MakeAMoveForm').submit();
                 }
 
             };
@@ -153,11 +177,11 @@
 
                 if (move.ID() == self.CurrentMove.ID()) {
                     self.GuessOrdinal(0);
-                    document.getElementById('hdnGuessOrdinal').value = 0;
+                    //document.getElementById('hdnGuessOrdinal').value = 0;
                 }
                 else {
                     self.GuessOrdinal(move.MoveOrder());
-                    document.getElementById('hdnGuessOrdinal').value = move.MoveOrder();
+                    //document.getElementById('hdnGuessOrdinal').value = move.MoveOrder();
                 }
 
                 self.CurrentMove.ID(move.ID());
@@ -168,9 +192,8 @@
                 for (var i = 0; i < 9; i++) {
                     for (var j = 0; j < 9; j++) {
                         var col_row = self.ConvertNumColToAlpha(i) + (j + 1);
-
-                        self.CurrentMove[col_row].ID(move[col_row].ID());
-                        self.CurrentMove[col_row].SudokuMoveID(move[col_row].SudokuMoveID());
+                        //self.CurrentMove[col_row].ID(move[col_row].ID());
+                        //self.CurrentMove[col_row].SudokuMoveID(move[col_row].SudokuMoveID());
                         self.CurrentMove[col_row].Value(move[col_row].Value());
                         self.CurrentMove[col_row].IsAStart(move[col_row].IsAStart());
                     }
@@ -239,27 +262,58 @@
                 self.SetKP_Position(newX, newY);
             }
 
+            function onKeyPadMoveTouch(e) {
+                e.preventDefault();
+                var clickPOS = findClickPosition(e);
+
+                var yoffset = -100;
+                var xoffset = 100;
+
+                var newX = clickPOS.x - xoffset;
+                var newY = clickPOS.y - yoffset;
+
+                SetKeyPadPositionVariables(newX, newY);
+                self.SetKP_Position(newX, newY);
+            }
+
             function SetKeyPadPositionVariables(newX, newY) {
                 self.KP_POS_X(newX);
                 self.KP_POS_Y(newY);
-                document.getElementById('kp_xpos').value = newX;
-                document.getElementById('kp_ypos').value = newY;
+                //document.getElementById('kp_xpos').value = newX;
+                //document.getElementById('kp_ypos').value = newY;
             }
 
+            var isTouchDevice = 'ontouchstart' in document.documentElement;
             $(function () {
                 $("#btnMoveKeyPad").mousedown(function () {
-                    window.addEventListener("mousemove", onKeyPadMove);
+                    if (isTouchDevice == false) {
+                        window.addEventListener("mousemove", onKeyPadMove);
+                    }
+                    else {
+                        window.addEventListener("touchmove", onKeyPadMoveTouch);
+                    }
                 });
                 window.addEventListener("mouseup", function () {
-                    window.removeEventListener("mousemove", onKeyPadMove);
+                    if (isTouchDevice == false) {
+                        window.removeEventListener("mousemove", onKeyPadMove);
+                    }
                 });
-
+                $("#btnMoveKeyPad").on('touchstart', function () {
+                    if (isTouchDevice) {
+                        window.addEventListener("touchmove", onKeyPadMoveTouch);
+                    }
+                });
+                window.addEventListener("touchend", function () {
+                    if (isTouchDevice) {
+                        window.removeEventListener("touchmove", onKeyPadMoveTouch);
+                    }
+                });
                 $("#resetToDefaultPosition").click(function (e) {
 
                     SetKeyPadPositionVariables(0, 0);
                     self.SetKP_Position(self.LastCellClickPositionX() - 400, self.LastCellClickPositionY() - 75);
                 });
-            })
+            });
         };
 
         ko.applyBindings(new vm(@Html.Raw(data)));
@@ -267,12 +321,14 @@
     </script>
 }
 <br />
+<div>
+    <span>Level:</span>&nbsp;<em data-bind="text: DifficultyLevel"></em>
+</div>
 <div id="puzzleSolved" style="display:none">
     <div class="jumbotron">
         <h2>Congratulations, You solved the puzzle!!</h2>
     </div>
 </div>
-
 <div id="invalidSolution" style="display:none">
     <div class="jumbotron">
         <h2>The Solution you've provided is not correct. Please try again.</h2>
@@ -286,17 +342,6 @@
 <br />
 <br />
 
-@using (Html.BeginForm("MakeAMove", "Sudoku", FormMethod.Post, new { @id = "MakeAMoveForm" }))
-{
-    @Html.HiddenFor(x => x.GuessOrdinal, new { @id = "hdnGuessOrdinal" })
-    @Html.HiddenFor(x => x.GuessRow, new { @id = "hdnGuessRow" })
-    @Html.HiddenFor(x => x.GuessColumn, new { @id = "hdnGuessColumn" })
-    @Html.HiddenFor(x => x.Guess, new { @id = "hdnGuess" })
-
-    @Html.HiddenFor(x => x.KP_POS_X, new { @id = "kp_xpos" })
-    @Html.HiddenFor(x => x.KP_POS_Y, new { @id = "kp_ypos" })
-
-}
 
 <script id="currentMove" type="text/html">
     <div id="mySudokuPuzzle" style="left:35px; position: relative">
@@ -826,7 +871,7 @@ Moves:
             <tr style="line-height: 10px;">
                 <td colspan="3">
                     <button title="Click and drag to new position" id="btnMoveKeyPad" class="keyPadButton" style="width: 75px; margin-top:2px"><em style="font-size:xx-small">&nbsp;</em></button>
-                    <img src="@Url.Content("~/images/RepeatHS.png")" id="resetToDefaultPosition" title="Reset to default position"/>
+                    <img src="@Url.Content("~/images/RepeatHS.png")" id="resetToDefaultPosition" title="Reset to default position" />
                 </td>
             </tr>
             <tr>
